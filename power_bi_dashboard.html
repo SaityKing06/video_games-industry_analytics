@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Video Game Industry Analytics — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0B1220; --panel:#111A2E; --panel2:#0E1728; --line:#1E2A45;
+    --ink:#EAF0FF; --sub:#8CA0C7; --accent:#3DDC97; --accent2:#5B8CFF; --warn:#FFB84D;
+    --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+    --sans:'Inter','Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:linear-gradient(180deg,#0B1220,#0A0F1C 60%);color:var(--ink);font-family:var(--sans);}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 24px 60px;}
+  .eyebrow{font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-size:11px;margin:0 0 6px;}
+  h1{margin:0 0 4px;font-size:28px;font-weight:700;letter-spacing:-.01em;}
+  .sub{color:var(--sub);font-size:13.5px;margin:0 0 22px;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .kpi .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--ink);}
+  .kpi .l{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .tab{font-family:var(--mono);font-size:12.5px;color:var(--sub);background:transparent;border:none;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.03em;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+  .panel h3{margin:0 0 4px;font-size:14px;font-weight:600;}
+  .panel .note{color:var(--sub);font-size:11.5px;margin:0 0 14px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;color:var(--sub);font-family:var(--mono);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--line);}
+  td{padding:7px 8px;border-bottom:1px solid #17223A;}
+  tr:hover td{background:#101B30;}
+  .rank{color:var(--accent);font-family:var(--mono);}
+  .score{font-family:var(--mono);color:var(--accent2);font-weight:700;}
+  .chip{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:#16233C;color:var(--sub);border:1px solid var(--line);}
+  canvas{max-height:320px;}
+  .foot{color:var(--sub);font-size:11px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px;font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Publisher &middot; Platform &middot; Genre Performance</p>
+  <h1>Video Game Industry Analytics Study</h1>
+  <p class="sub">16,668 titles analyzed after cleaning &nbsp;·&nbsp; 2000–2026 &nbsp;·&nbsp; SQL + Excel + Power BI-style reporting layer</p>
+
+  <div class="kpis" id="kpiRow"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="overview">OVERVIEW</button>
+    <button class="tab" data-view="publisher">PUBLISHER MARKET SHARE</button>
+    <button class="tab" data-view="regional">REGIONAL / GENRE</button>
+    <button class="tab" data-view="platform">PLATFORM</button>
+    <button class="tab" data-view="scores">GAME SUCCESS SCORE</button>
+  </div>
+
+  <div class="view active" id="view-overview">
+    <div class="grid2">
+      <div class="panel">
+        <h3>Global Sales Trend</h3>
+        <p class="note">Total global sales ($M) by release year</p>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Titles Released per Year</h3>
+        <p class="note">Release volume, 2000–2026</p>
+        <canvas id="volumeChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-publisher">
+    <div class="grid2">
+      <div class="panel">
+        <h3>Market Share — Top 12 Publishers</h3>
+        <p class="note">Share of total global sales</p>
+        <canvas id="pubPie"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Publisher Leaderboard</h3>
+        <p class="note">Ranked by total global sales ($M)</p>
+        <table id="pubTable"><thead><tr><th>#</th><th>Publisher</th><th>Titles</th><th>Sales ($M)</th><th>Share</th><th>Avg Critic</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-regional">
+    <div class="panel">
+      <h3>Regional Sales by Genre</h3>
+      <p class="note">NA / EU / JP / Other, $M</p>
+      <canvas id="genreChart" style="max-height:380px;"></canvas>
+    </div>
+  </div>
+
+  <div class="view" id="view-platform">
+    <div class="panel">
+      <h3>Global Sales by Platform</h3>
+      <p class="note">Top 12 platforms by total global sales</p>
+      <canvas id="platformChart" style="max-height:380px;"></canvas>
+    </div>
+  </div>
+
+  <div class="view" id="view-scores">
+    <div class="panel">
+      <h3>Top Titles — Game Success Score</h3>
+      <p class="note">Custom 0–100 score: 45% commercial sales + 30% critic score + 15% user score + 10% regional reach</p>
+      <table id="scoreTable"><thead><tr><th>#</th><th>Title</th><th>Platform</th><th>Genre</th><th>Publisher</th><th>Sales ($M)</th><th>Success Score</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="foot">Data cleaned via SQL (cleaning_and_analysis.sql) &middot; workbook: Video_Game_Industry_Analytics.xlsx &middot; dashboard mirrors the Power BI report structure</div>
+</div>
+
+<script>
+const DATA = {"kpis": {"total_titles": 16668, "total_sales": 5141.7, "publishers": 31, "platforms": 28, "years": [2000, 2026]}, "publisher": [{"Publisher": "Konami", "Titles_Published": 561, "Total_Global_Sales_M": 234.8, "Market_Share_Pct": 4.57, "Avg_Critic_Score": 69.5}, {"Publisher": "Team17", "Titles_Published": 568, "Total_Global_Sales_M": 206.9, "Market_Share_Pct": 4.02, "Avg_Critic_Score": 69.8}, {"Publisher": "Take-Two Interactive", "Titles_Published": 543, "Total_Global_Sales_M": 200.1, "Market_Share_Pct": 3.89, "Avg_Critic_Score": 68.2}, {"Publisher": "Activision", "Titles_Published": 533, "Total_Global_Sales_M": 193.5, "Market_Share_Pct": 3.76, "Avg_Critic_Score": 68.9}, {"Publisher": "Atari", "Titles_Published": 574, "Total_Global_Sales_M": 190.0, "Market_Share_Pct": 3.69, "Avg_Critic_Score": 69.2}, {"Publisher": "Electronic Arts", "Titles_Published": 547, "Total_Global_Sales_M": 184.4, "Market_Share_Pct": 3.59, "Avg_Critic_Score": 70.0}, {"Publisher": "505 Games", "Titles_Published": 529, "Total_Global_Sales_M": 181.8, "Market_Share_Pct": 3.54, "Avg_Critic_Score": 69.7}, {"Publisher": "Devolver Digital", "Titles_Published": 562, "Total_Global_Sales_M": 177.5, "Market_Share_Pct": 3.45, "Avg_Critic_Score": 70.2}, {"Publisher": "Warner Bros. Interactive", "Titles_Published": 590, "Total_Global_Sales_M": 172.9, "Market_Share_Pct": 3.36, "Avg_Critic_Score": 69.0}, {"Publisher": "Codemasters", "Titles_Published": 562, "Total_Global_Sales_M": 172.2, "Market_Share_Pct": 3.35, "Avg_Critic_Score": 70.3}, {"Publisher": "Tecmo Koei", "Titles_Published": 587, "Total_Global_Sales_M": 171.0, "Market_Share_Pct": 3.33, "Avg_Critic_Score": 69.9}, {"Publisher": "Ubisoft", "Titles_Published": 517, "Total_Global_Sales_M": 170.0, "Market_Share_Pct": 3.31, "Avg_Critic_Score": 69.5}], "genre": [{"Genre": "Platform", "NA_Sales_M": 193.9, "EU_Sales_M": 119.9, "JP_Sales_M": 84.1, "Other_Sales_M": 90.1, "Global_Sales_M": 488.0}, {"Genre": "Role-Playing", "NA_Sales_M": 197.0, "EU_Sales_M": 123.5, "JP_Sales_M": 80.2, "Other_Sales_M": 84.6, "Global_Sales_M": 485.3}, {"Genre": "Puzzle", "NA_Sales_M": 185.3, "EU_Sales_M": 114.2, "JP_Sales_M": 73.7, "Other_Sales_M": 81.1, "Global_Sales_M": 454.3}, {"Genre": "Sports", "NA_Sales_M": 180.5, "EU_Sales_M": 111.8, "JP_Sales_M": 72.9, "Other_Sales_M": 88.7, "Global_Sales_M": 453.9}, {"Genre": "Misc", "NA_Sales_M": 181.1, "EU_Sales_M": 111.5, "JP_Sales_M": 68.9, "Other_Sales_M": 88.8, "Global_Sales_M": 450.3}, {"Genre": "Shooter", "NA_Sales_M": 175.2, "EU_Sales_M": 111.5, "JP_Sales_M": 70.5, "Other_Sales_M": 92.5, "Global_Sales_M": 449.8}, {"Genre": "Action", "NA_Sales_M": 168.6, "EU_Sales_M": 105.5, "JP_Sales_M": 68.7, "Other_Sales_M": 81.0, "Global_Sales_M": 423.9}, {"Genre": "Strategy", "NA_Sales_M": 161.3, "EU_Sales_M": 101.0, "JP_Sales_M": 64.1, "Other_Sales_M": 78.8, "Global_Sales_M": 405.3}, {"Genre": "Simulation", "NA_Sales_M": 156.6, "EU_Sales_M": 99.2, "JP_Sales_M": 61.6, "Other_Sales_M": 79.0, "Global_Sales_M": 396.3}, {"Genre": "Racing", "NA_Sales_M": 154.3, "EU_Sales_M": 92.1, "JP_Sales_M": 61.5, "Other_Sales_M": 76.2, "Global_Sales_M": 384.1}, {"Genre": "Fighting", "NA_Sales_M": 153.0, "EU_Sales_M": 95.0, "JP_Sales_M": 61.4, "Other_Sales_M": 74.3, "Global_Sales_M": 383.7}, {"Genre": "Adventure", "NA_Sales_M": 143.3, "EU_Sales_M": 92.1, "JP_Sales_M": 59.6, "Other_Sales_M": 71.7, "Global_Sales_M": 366.8}], "trend": [{"Year": 2000.0, "Titles_Released": 599, "Global_Sales_M": 226.8, "Avg_Critic_Score": 69.9}, {"Year": 2001.0, "Titles_Released": 629, "Global_Sales_M": 204.8, "Avg_Critic_Score": 70.4}, {"Year": 2002.0, "Titles_Released": 608, "Global_Sales_M": 192.1, "Avg_Critic_Score": 69.7}, {"Year": 2003.0, "Titles_Released": 594, "Global_Sales_M": 189.7, "Avg_Critic_Score": 69.2}, {"Year": 2004.0, "Titles_Released": 603, "Global_Sales_M": 172.4, "Avg_Critic_Score": 70.2}, {"Year": 2005.0, "Titles_Released": 638, "Global_Sales_M": 211.8, "Avg_Critic_Score": 69.1}, {"Year": 2006.0, "Titles_Released": 583, "Global_Sales_M": 164.2, "Avg_Critic_Score": 67.9}, {"Year": 2007.0, "Titles_Released": 580, "Global_Sales_M": 165.9, "Avg_Critic_Score": 68.9}, {"Year": 2008.0, "Titles_Released": 579, "Global_Sales_M": 187.1, "Avg_Critic_Score": 70.2}, {"Year": 2009.0, "Titles_Released": 573, "Global_Sales_M": 172.3, "Avg_Critic_Score": 69.8}, {"Year": 2010.0, "Titles_Released": 564, "Global_Sales_M": 164.3, "Avg_Critic_Score": 70.3}, {"Year": 2011.0, "Titles_Released": 621, "Global_Sales_M": 168.9, "Avg_Critic_Score": 69.2}, {"Year": 2012.0, "Titles_Released": 597, "Global_Sales_M": 196.1, "Avg_Critic_Score": 68.6}, {"Year": 2013.0, "Titles_Released": 584, "Global_Sales_M": 156.9, "Avg_Critic_Score": 69.3}, {"Year": 2014.0, "Titles_Released": 633, "Global_Sales_M": 199.6, "Avg_Critic_Score": 68.8}, {"Year": 2015.0, "Titles_Released": 636, "Global_Sales_M": 211.4, "Avg_Critic_Score": 68.8}, {"Year": 2016.0, "Titles_Released": 614, "Global_Sales_M": 209.7, "Avg_Critic_Score": 69.5}, {"Year": 2017.0, "Titles_Released": 626, "Global_Sales_M": 198.2, "Avg_Critic_Score": 68.8}, {"Year": 2018.0, "Titles_Released": 589, "Global_Sales_M": 164.9, "Avg_Critic_Score": 69.6}, {"Year": 2019.0, "Titles_Released": 614, "Global_Sales_M": 198.0, "Avg_Critic_Score": 69.8}, {"Year": 2020.0, "Titles_Released": 556, "Global_Sales_M": 155.2, "Avg_Critic_Score": 69.2}, {"Year": 2021.0, "Titles_Released": 598, "Global_Sales_M": 180.2, "Avg_Critic_Score": 69.3}, {"Year": 2022.0, "Titles_Released": 571, "Global_Sales_M": 174.2, "Avg_Critic_Score": 70.6}, {"Year": 2023.0, "Titles_Released": 573, "Global_Sales_M": 183.2, "Avg_Critic_Score": 69.6}, {"Year": 2024.0, "Titles_Released": 597, "Global_Sales_M": 149.0, "Avg_Critic_Score": 69.2}, {"Year": 2025.0, "Titles_Released": 583, "Global_Sales_M": 168.4, "Avg_Critic_Score": 69.5}, {"Year": 2026.0, "Titles_Released": 581, "Global_Sales_M": 212.7, "Avg_Critic_Score": 69.0}], "platform": [{"Platform": "Game Boy Advance", "Titles_Released": 888, "Global_Sales_M": 372.2, "Avg_Sales_Per_Title_M": 0.42, "Avg_Critic_Score": 70.1}, {"Platform": "Wii U", "Titles_Released": 909, "Global_Sales_M": 315.9, "Avg_Sales_Per_Title_M": 0.35, "Avg_Critic_Score": 68.9}, {"Platform": "Xbox One", "Titles_Released": 1005, "Global_Sales_M": 315.3, "Avg_Sales_Per_Title_M": 0.31, "Avg_Critic_Score": 69.4}, {"Platform": "PC", "Titles_Released": 1007, "Global_Sales_M": 309.3, "Avg_Sales_Per_Title_M": 0.31, "Avg_Critic_Score": 69.8}, {"Platform": "Xbox 360", "Titles_Released": 996, "Global_Sales_M": 307.9, "Avg_Sales_Per_Title_M": 0.31, "Avg_Critic_Score": 69.2}, {"Platform": "GameCube", "Titles_Released": 964, "Global_Sales_M": 303.8, "Avg_Sales_Per_Title_M": 0.32, "Avg_Critic_Score": 69.4}, {"Platform": "Xbox Series X", "Titles_Released": 954, "Global_Sales_M": 301.8, "Avg_Sales_Per_Title_M": 0.32, "Avg_Critic_Score": 70.1}, {"Platform": "PS4", "Titles_Released": 934, "Global_Sales_M": 294.5, "Avg_Sales_Per_Title_M": 0.32, "Avg_Critic_Score": 68.9}, {"Platform": "PS Vita", "Titles_Released": 936, "Global_Sales_M": 291.8, "Avg_Sales_Per_Title_M": 0.31, "Avg_Critic_Score": 69.7}, {"Platform": "PS2", "Titles_Released": 953, "Global_Sales_M": 287.5, "Avg_Sales_Per_Title_M": 0.3, "Avg_Critic_Score": 69.7}, {"Platform": "3DS", "Titles_Released": 922, "Global_Sales_M": 284.2, "Avg_Sales_Per_Title_M": 0.31, "Avg_Critic_Score": 69.0}, {"Platform": "PS5", "Titles_Released": 974, "Global_Sales_M": 281.9, "Avg_Sales_Per_Title_M": 0.29, "Avg_Critic_Score": 68.7}], "top_games": [{"Name": "Ancient Genesis: Origins", "Platform": "Game Boy Advance", "Genre": "Role-Playing", "Publisher": "Team17", "Global_Sales": 45.01, "Success_Score": 88.6}, {"Name": "Shadow Voyage: Redux", "Platform": "Wii U", "Genre": "Platform", "Publisher": "Konami", "Global_Sales": 40.9, "Success_Score": 77.3}, {"Name": "Shadow Vanguard", "Platform": "Game Boy Advance", "Genre": "Platform", "Publisher": "Take-Two Interactive", "Global_Sales": 36.98, "Success_Score": 74.9}, {"Name": "Sacred Genesis: Remastered", "Platform": "Game Boy Advance", "Genre": "Simulation", "Publisher": "Konami", "Global_Sales": 16.43, "Success_Score": 57.9}, {"Name": "Frozen Chronicles 2", "Platform": "PS5", "Genre": "Shooter", "Publisher": "505 Games", "Global_Sales": 5.84, "Success_Score": 56.5}, {"Name": "Lost Kingdom II", "Platform": "GameCube", "Genre": "Simulation", "Publisher": "NetherRealm Studios", "Global_Sales": 8.43, "Success_Score": 55.3}, {"Name": "Lost Reckoning 2", "Platform": "PS3", "Genre": "Adventure", "Publisher": "Tecmo Koei", "Global_Sales": 0.53, "Success_Score": 55.2}, {"Name": "Golden Reckoning: Redux", "Platform": "Wii U", "Genre": "Role-Playing", "Publisher": "Activision", "Global_Sales": 17.3, "Success_Score": 54.9}, {"Name": "Wild Crusade: Origins", "Platform": "Nintendo Switch", "Genre": "Adventure", "Publisher": "Devolver Digital", "Global_Sales": 4.46, "Success_Score": 54.4}, {"Name": "Wild Realm: Redux", "Platform": "Xbox 360", "Genre": "Puzzle", "Publisher": "Bandai Namco", "Global_Sales": 9.47, "Success_Score": 54.3}, {"Name": "Ancient Crusade", "Platform": "Wii U", "Genre": "Simulation", "Publisher": "Rockstar Games", "Global_Sales": 0.1, "Success_Score": 54.2}, {"Name": "Wild Voyage III", "Platform": "Xbox 360", "Genre": "Puzzle", "Publisher": "Atari", "Global_Sales": 3.23, "Success_Score": 54.0}, {"Name": "Neon Sanctuary Reborn", "Platform": "PS Vita", "Genre": "Adventure", "Publisher": "Rockstar Games", "Global_Sales": 8.92, "Success_Score": 53.9}, {"Name": "Lost Covenant: Gold Edition", "Platform": "GameCube", "Genre": "Puzzle", "Publisher": "Team17", "Global_Sales": 0.17, "Success_Score": 53.5}, {"Name": "Hollow Syndicate: Gold Edition", "Platform": "Xbox One", "Genre": "Action", "Publisher": "Activision", "Global_Sales": 0.51, "Success_Score": 53.4}, {"Name": "Steel Voyage: Gold Edition", "Platform": "DS", "Genre": "Action", "Publisher": "Epic Games", "Global_Sales": 1.87, "Success_Score": 53.4}, {"Name": "Silent Syndicate 2", "Platform": "Xbox Series X", "Genre": "Strategy", "Publisher": "Sony Interactive Entertainment", "Global_Sales": 0.09, "Success_Score": 53.1}, {"Name": "Silent Covenant Online", "Platform": "PSP", "Genre": "Action", "Publisher": "Rockstar Games", "Global_Sales": 0.81, "Success_Score": 53.0}, {"Name": "Twisted Legion Online", "Platform": "PS5", "Genre": "Action", "Publisher": "2K Games", "Global_Sales": 0.59, "Success_Score": 53.0}, {"Name": "Wicked Empire IV", "Platform": "Xbox Series X", "Genre": "Misc", "Publisher": "Microsoft Studios", "Global_Sales": 0.14, "Success_Score": 53.0}]};
+
+const palette = ['#3DDC97','#5B8CFF','#FFB84D','#FF6B81','#B993FF','#4DD9E8','#F2E063','#7CE38B','#F08A5D','#87A6FF','#E56399','#6FD8C7'];
+Chart.defaults.color = '#8CA0C7';
+Chart.defaults.font.family = "'Inter','Segoe UI',system-ui,sans-serif";
+Chart.defaults.borderColor = '#1E2A45';
+
+function kpi(v,l){ const d=document.createElement('div'); d.className='kpi';
+  d.innerHTML = `<div class="v">${v}</div><div class="l">${l}</div>`; return d; }
+const kpiRow = document.getElementById('kpiRow');
+kpiRow.appendChild(kpi(DATA.kpis.total_titles.toLocaleString(),'Titles Analyzed'));
+kpiRow.appendChild(kpi('$'+DATA.kpis.total_sales.toLocaleString()+'M','Total Global Sales'));
+kpiRow.appendChild(kpi(DATA.kpis.publishers,'Publishers'));
+kpiRow.appendChild(kpi(DATA.kpis.platforms,'Platforms'));
+kpiRow.appendChild(kpi(DATA.kpis.years[0]+'–'+DATA.kpis.years[1],'Years Covered'));
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('view-'+t.dataset.view).classList.add('active');
+  });
+});
+
+// Trend chart
+new Chart(document.getElementById('trendChart'), {
+  type:'line',
+  data:{ labels: DATA.trend.map(r=>r.Year),
+    datasets:[{ label:'Global Sales ($M)', data: DATA.trend.map(r=>r.Global_Sales_M),
+      borderColor:'#3DDC97', backgroundColor:'rgba(61,220,151,0.12)', fill:true, tension:.35, pointRadius:0 }]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#17223A'}} } }
+});
+
+new Chart(document.getElementById('volumeChart'), {
+  type:'bar',
+  data:{ labels: DATA.trend.map(r=>r.Year),
+    datasets:[{ label:'Titles Released', data: DATA.trend.map(r=>r.Titles_Released), backgroundColor:'#5B8CFF' }]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#17223A'}} } }
+});
+
+// Publisher pie
+new Chart(document.getElementById('pubPie'), {
+  type:'doughnut',
+  data:{ labels: DATA.publisher.map(r=>r.Publisher),
+    datasets:[{ data: DATA.publisher.map(r=>r.Total_Global_Sales_M), backgroundColor: palette }]},
+  options:{ plugins:{legend:{position:'right', labels:{boxWidth:10,font:{size:10}}}} }
+});
+
+const pubBody = document.querySelector('#pubTable tbody');
+DATA.publisher.forEach((r,i)=>{
+  pubBody.innerHTML += `<tr><td class="rank">${i+1}</td><td>${r.Publisher}</td><td>${r.Titles_Published}</td>
+    <td>${r.Total_Global_Sales_M}</td><td>${r.Market_Share_Pct}%</td><td>${r.Avg_Critic_Score}</td></tr>`;
+});
+
+// Genre stacked bar
+new Chart(document.getElementById('genreChart'), {
+  type:'bar',
+  data:{ labels: DATA.genre.map(r=>r.Genre),
+    datasets:[
+      {label:'NA', data: DATA.genre.map(r=>r.NA_Sales_M), backgroundColor:'#3DDC97'},
+      {label:'EU', data: DATA.genre.map(r=>r.EU_Sales_M), backgroundColor:'#5B8CFF'},
+      {label:'JP', data: DATA.genre.map(r=>r.JP_Sales_M), backgroundColor:'#FFB84D'},
+      {label:'Other', data: DATA.genre.map(r=>r.Other_Sales_M), backgroundColor:'#B993FF'}
+    ]},
+  options:{ scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#17223A'}} } }
+});
+
+// Platform bar
+new Chart(document.getElementById('platformChart'), {
+  type:'bar',
+  data:{ labels: DATA.platform.map(r=>r.Platform),
+    datasets:[{ label:'Global Sales ($M)', data: DATA.platform.map(r=>r.Global_Sales_M), backgroundColor:'#FFB84D' }]},
+  options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{grid:{color:'#17223A'}}, y:{grid:{display:false}} } }
+});
+
+// Score table
+const scoreBody = document.querySelector('#scoreTable tbody');
+DATA.top_games.forEach((r,i)=>{
+  scoreBody.innerHTML += `<tr><td class="rank">${i+1}</td><td>${r.Name}</td><td><span class="chip">${r.Platform}</span></td>
+    <td>${r.Genre}</td><td>${r.Publisher}</td><td>${r.Global_Sales}</td><td class="score">${r.Success_Score}</td></tr>`;
+});
+</script>
+</body>
+</html>
